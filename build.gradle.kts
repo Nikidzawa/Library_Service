@@ -1,36 +1,24 @@
 plugins {
     id("java")
-    id ("io.spring.dependency-management") version "1.1.3"
-    id ("org.springframework.boot") version "3.1.4"
+    id ("io.spring.dependency-management") version "1.1.4"
+    id ("org.springframework.boot") version "3.2.0"
 }
-group = "org.example"
-version = "1.0"
+group = "ru.nikidzawa"
 
-repositories {
-    mavenCentral()
-}
+repositories { mavenCentral() }
 
-//Spring framework
 dependencies {
     implementation("org.springframework.boot", "spring-boot-starter-web")
     implementation("org.springframework.boot" , "spring-boot-starter-data-jpa")
 }
 
-//PostgreSQL
 dependencies {
-    implementation("org.postgresql", "postgresql", "42.2.19")
+    implementation("org.postgresql:postgresql:42.7.1")
 }
 
-//Lombok
 dependencies {
-    compileOnly ("org.projectlombok:lombok:1.18.20")
-    testCompileOnly ("org.projectlombok:lombok:1.18.20")
-    annotationProcessor ("org.projectlombok:lombok:1.18.20")
-    testAnnotationProcessor ("org.projectlombok:lombok:1.18.20")
-}
-
-//Tests
-dependencies {
-    testImplementation ("org.junit.jupiter:junit-jupiter-api:5.7.0")
-    testRuntimeOnly ("org.junit.jupiter:junit-jupiter-engine:5.7.0")
+    compileOnly ("org.projectlombok:lombok:1.18.30")
+    testCompileOnly ("org.projectlombok:lombok:1.18.30")
+    annotationProcessor ("org.projectlombok:lombok:1.18.30")
+    testAnnotationProcessor ("org.projectlombok:lombok:1.18.30")
 }

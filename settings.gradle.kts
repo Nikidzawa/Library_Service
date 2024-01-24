@@ -1,2 +1,2 @@
-rootProject.name = "Libary_Microservice"
+rootProject.name = "Library_Microservice"
 
