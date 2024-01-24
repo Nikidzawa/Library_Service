@@ -11,16 +11,16 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 @Entity
-@Table(name = "Book")
+@Table(name = "books")
 public class BookEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @Column(name = "Name")
+    @Column(name = "name")
     String name;
 
-    @Column (name = "Author")
+    @Column (name = "author")
     String author;
 
     @ManyToOne
