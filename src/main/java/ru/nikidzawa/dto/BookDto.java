@@ -16,4 +16,6 @@ public class BookDto {
 
     @NonNull
     String author;
+
+    Long ownerID;
 }

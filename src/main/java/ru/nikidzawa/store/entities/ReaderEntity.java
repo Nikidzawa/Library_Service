@@ -27,6 +27,7 @@ public class ReaderEntity {
     String surname;
 
     @Builder.Default
-    @OneToMany(mappedBy = "reader")
+    @OneToMany(mappedBy = "reader", fetch = FetchType.EAGER)
     List <BookEntity> books = new ArrayList<>();
+
 }

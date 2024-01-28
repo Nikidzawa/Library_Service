@@ -10,16 +10,19 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import ru.nikidzawa.dto.BookDto;
 import ru.nikidzawa.dto.ReaderDto;
-import ru.nikidzawa.factory.BookDtoFactory;
-import ru.nikidzawa.factory.ReaderDtoFactory;
+import ru.nikidzawa.dto.factory.BookDtoFactory;
+import ru.nikidzawa.dto.factory.ReaderDtoFactory;
+import ru.nikidzawa.responses.OKResponse;
+import ru.nikidzawa.responses.exceptions.BadRequestException;
+import ru.nikidzawa.responses.exceptions.Exception;
+import ru.nikidzawa.responses.exceptions.NotFoundException;
 import ru.nikidzawa.store.entities.BookEntity;
 import ru.nikidzawa.store.entities.ReaderEntity;
 import ru.nikidzawa.store.repositoreis.BooksRepository;
 import ru.nikidzawa.store.repositoreis.ReadersRepository;
-import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,6 +42,7 @@ public class ReadersController {
     ReaderDtoFactory readerDtoFactory;
 
     BooksRepository booksRepository;
+
     public static final String CREATE_READER = "/api/readers/create";
     public static final String READER_INFO = "/api/readers/{id}";
     public static final String READERS_LIST = "api/readers";
@@ -52,19 +56,20 @@ public class ReadersController {
             description = "Читатель зарегистрирован",
             content = {
                     @Content (
-                            mediaType = "reader.json",
+                            mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = ReaderDto.class))
                     )
             })
     @PostMapping(CREATE_READER)
     public ReaderDto createReader (@RequestParam (value = "name") String name,
                                    @RequestParam (value = "surname") String surname) {
-        ReaderEntity readerEntity = readersRepository.saveAndFlush(
+        return readerDtoFactory.createReader(readersRepository.saveAndFlush(
                 ReaderEntity.builder()
                         .name(name)
                         .surname(surname)
-                        .build());
-        return readerDtoFactory.createReader(readerEntity);
+                        .build()
+                )
+        );
     }
 
     @Operation(summary = "Изменить био читателя")
@@ -73,7 +78,7 @@ public class ReadersController {
             description = "Изменения внесены",
             content = {
                     @Content (
-                            mediaType = "reader.json",
+                            mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = ReaderDto.class))
                     )
             })
@@ -82,8 +87,8 @@ public class ReadersController {
             description = "Данные не были изменены",
             content = {
                     @Content(
-                            mediaType = "string",
-                            array = @ArraySchema(schema = @Schema(implementation = String.class))
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
     @ApiResponse (
@@ -91,34 +96,31 @@ public class ReadersController {
             description = "Пользователь не найден",
             content = {
                     @Content(
-                            mediaType = "string",
-                            array = @ArraySchema(schema = @Schema(implementation = String.class))
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
     @PatchMapping(PATCH_READER)
-    public ResponseEntity<?> patchUser (@PathVariable (value = "id") Long id,
+    public ReaderDto editReader (@PathVariable (value = "id") Long id,
                                 @RequestParam (value = "name", required = false) Optional <String> name,
                                 @RequestParam (value = "surname", required = false) Optional <String> surname)
     {
         Optional <ReaderEntity> readerEntity = readersRepository.findById(id);
-        return readerEntity.map(user -> {
+        return readerEntity.map(reader -> {
             boolean hasBeenEdited = false;
             if (name.isPresent()) {
                 hasBeenEdited = true;
-                user.setName(name.get());
+                reader.setName(name.get());
             }
-
             if (surname.isPresent()) {
                 hasBeenEdited = true;
-                user.setSurname(surname.get());
+                reader.setSurname(surname.get());
             }
-
             if (hasBeenEdited) {
-                readersRepository.saveAndFlush(user);
-                return ResponseEntity.status(HttpStatus.OK).body(readerDtoFactory.createReader(user));
-            } else return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Данные не были изменены");
-
-        }).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).body("Пользователь не найден"));
+                return readerDtoFactory.createReader(readersRepository.saveAndFlush(reader));
+            }
+            throw new BadRequestException("Данные не были изменены");
+        }).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 
     @Operation(summary = "Получить информацию о читателе")
@@ -127,7 +129,7 @@ public class ReadersController {
             description = "Читатель получен",
             content = {
                     @Content (
-                            mediaType = "reader.json",
+                            mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = ReaderDto.class))
                     )
             })
@@ -136,16 +138,15 @@ public class ReadersController {
             description = "Пользователь не найден",
             content = {
                     @Content(
-                            mediaType = "string",
-                            array = @ArraySchema(schema = @Schema(implementation = String.class))
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
     @GetMapping(READER_INFO)
-    public ResponseEntity<?> ShowUserInformation (@PathVariable (value = "id") Long id) {
-        Optional<ReaderEntity> reader = readersRepository.findById(id);
-        return reader.isPresent() ?
-                ResponseEntity.status(HttpStatus.OK).body(readerDtoFactory.createReader(reader.get())) :
-                ResponseEntity.status(HttpStatus.NOT_FOUND).body("Пользователь не найден");
+    public ReaderDto readerInfo (@PathVariable (value = "id") Long id) {
+        return readerDtoFactory
+                .createReader(readersRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден")));
     }
 
     @Operation(summary = "Получить книги читателя")
@@ -154,29 +155,31 @@ public class ReadersController {
             description = "Книги получены",
             content = {
                     @Content (
-                            mediaType = "reader.json",
+                            mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = ReaderDto.class))
                     )
             })
     @ApiResponse (
             responseCode = "404",
-            description = "У читателя нет книг",
+            description = "Cущности не найдены",
             content = {
                     @Content(
-                            mediaType = "string",
-                            array = @ArraySchema(schema = @Schema(implementation = String.class))
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
     @GetMapping(READER_BOOKS_LIST)
-    public ResponseEntity<?> userList (@PathVariable (value = "id") Long readerId)
+    public List<BookDto> readerBooks (@PathVariable (value = "id") Long readerId)
     {
-        List<BookEntity> bookEntities = booksRepository.findAllByReader_Id(readerId);
+        ReaderEntity reader = readersRepository.findById(readerId)
+                .orElseThrow(() -> new NotFoundException("Читатель не найден"));
+        List<BookEntity> bookEntities = reader.getBooks();
         if (bookEntities.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("У читателя нет книг");
+            throw new NotFoundException("У читателя нет книг");
         } else {
-            return ResponseEntity.status(HttpStatus.OK).body(bookEntities.stream()
+            return bookEntities.stream()
                     .map(bookDtoFactory::createBook)
-                    .collect(Collectors.toList()));
+                    .collect(Collectors.toList());
         }
     }
 
@@ -186,7 +189,7 @@ public class ReadersController {
             description = "Читатели получены",
             content = {
                     @Content (
-                            mediaType = "reader.json",
+                            mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = ReaderDto.class))
                     )
             })
@@ -195,22 +198,20 @@ public class ReadersController {
             description = "Читатели не найдены",
             content = {
                     @Content(
-                            mediaType = "string",
-                            array = @ArraySchema(schema = @Schema(implementation = String.class))
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
     @GetMapping(READERS_LIST)
-    public ResponseEntity<?> readersList ()
+    public List<ReaderDto> allReaders ()
     {
         List<ReaderEntity> readerEntities = readersRepository.findAll();
         if (readerEntities.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Читатели не найдены");
+            throw new NotFoundException("Читатели не найдены");
         }
-        List<ReaderDto> readerDtoList = readerEntities.stream()
+        return readerEntities.stream()
                 .map(readerDtoFactory::createReader)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.status(HttpStatus.OK).body(readerDtoList);
+                .toList();
     }
 
     @Operation(summary = "Удалить читателя")
@@ -219,8 +220,8 @@ public class ReadersController {
             description = "Читатель удалён",
             content = {
                     @Content(
-                            mediaType = "string",
-                            array = @ArraySchema(schema = @Schema(implementation = String.class))
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = OKResponse.class))
                     )}
     )
     @ApiResponse (
@@ -228,17 +229,23 @@ public class ReadersController {
             description = "Читатель не найден",
             content = {
                     @Content(
-                            mediaType = "string",
-                            array = @ArraySchema(schema = @Schema(implementation = String.class))
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
     @DeleteMapping(DELETE_READER)
-    public ResponseEntity<String> deleteReader(@PathVariable (value = "id") Long id) {
+    public OKResponse deleteReader(@PathVariable (value = "id") Long id) {
         Optional<ReaderEntity> readerEntity = readersRepository.findById(id);
-
-        return readerEntity.map(user -> {
-            readersRepository.delete(user);
-            return ResponseEntity.status(HttpStatus.OK).body("Читатель удалён");
-        }).orElse(ResponseEntity.status(HttpStatus.NOT_FOUND).body("Читатель не найден"));
+        return readerEntity.map(reader -> {
+            reader.getBooks().forEach(bookEntity -> {
+                bookEntity.setReader(null);
+                booksRepository.saveAndFlush(bookEntity);
+            });
+            readersRepository.delete(reader);
+            return OKResponse.builder()
+                    .code(200)
+                    .message("Читатель удалён")
+                    .build();
+        }).orElseThrow(() -> new NotFoundException("Читатель не найден"));
     }
 }
