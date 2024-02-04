@@ -10,7 +10,8 @@ public class ReaderDtoFactory {
        return ReaderDto.builder()
                .id(reader.getId())
                .name(reader.getName())
-               .surname(reader.getSurname())
+               .nickname(reader.getNickname())
+               .role(reader.getRole())
                .build();
     }
 }

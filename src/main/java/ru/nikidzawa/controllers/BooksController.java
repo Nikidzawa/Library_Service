@@ -10,6 +10,7 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import ru.nikidzawa.dto.BookDto;
 import ru.nikidzawa.dto.factory.BookDtoFactory;
@@ -22,6 +23,7 @@ import ru.nikidzawa.store.entities.ReaderEntity;
 import ru.nikidzawa.store.repositoreis.BooksRepository;
 import ru.nikidzawa.store.repositoreis.ReadersRepository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -41,7 +43,7 @@ public class BooksController {
     public static final String PATCH_BOOK = "api/books/edit/{bookId}";
     public static final String DELETE_BOOK = "api/books/delete/{id}";
 
-    @Operation(summary = "Создать книгу")
+    @Operation(summary = "Создать книгу", description = "Роли: Админ")
     @ApiResponse(
             responseCode = "200",
             description = "Книга создана",
@@ -51,6 +53,7 @@ public class BooksController {
                             array = @ArraySchema(schema = @Schema(implementation = BookDto.class))
                     )
             })
+    @PreAuthorize("hasAuthority('ADMIN')")
     @PostMapping (CREATE_BOOK)
     public BookDto createBook (@RequestParam (value = "name") String name,
                                @RequestParam (value = "author") String author) {
@@ -58,7 +61,6 @@ public class BooksController {
                 BookEntity.builder()
                         .name(name)
                         .author(author)
-                        .reader(null)
                         .build()
                 )
         );
@@ -83,6 +85,7 @@ public class BooksController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @PreAuthorize("hasAuthority('READER')")
     @GetMapping(GET_BOOKS)
     public List<BookDto> allBooks () {
         List<BookEntity> bookEntities = booksRepository.findAll();
@@ -114,6 +117,7 @@ public class BooksController {
                     )}
     )
     @GetMapping(GET_BOOK)
+    @PreAuthorize("hasAuthority('READER')")
     public BookDto bookInfo (@PathVariable (value = "id") Long id) {
         return bookDtoFactory.createBook(booksRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Книга не найдена")));
@@ -148,10 +152,11 @@ public class BooksController {
                     )}
     )
     @PatchMapping(PATCH_BOOK)
+    @PreAuthorize("hasAuthority('ADMIN')")
     public BookDto editeBook (@PathVariable (value = "bookId") Long bookId,
                               @RequestParam (value = "name", required = false) Optional <String> name,
                               @RequestParam (value = "author", required = false) Optional <String> author,
-                              @RequestParam (value = "readerId", required = false) Optional<Long> readerId) {
+                              @RequestParam (value = "readerNickname", required = false) Optional<String> readerNickname) {
        Optional<BookEntity> optionalBook = booksRepository.findById(bookId);
        return optionalBook.map(bookEntity -> {
             boolean hasBeenEdited = false;
@@ -163,11 +168,21 @@ public class BooksController {
                 hasBeenEdited = true;
                 bookEntity.setAuthor(author.get());
             }
-            if (readerId.isPresent()) {
+            if (readerNickname.isPresent()) {
                 hasBeenEdited = true;
-                bookEntity.setReader(readerId.map(id -> readersRepository.findById(id)
-                        .orElseThrow(() -> new NotFoundException("читатель не найден")))
-                        .orElse(null));
+                String nickname = readerNickname.get();
+                if (!nickname.equals("null")) {
+                    ReaderEntity reader  = readersRepository.findFirstByNickname(nickname)
+                            .orElseThrow(() -> new NotFoundException("Читатель не найден"));
+
+                        bookEntity.setReader(reader);
+                        bookEntity.setIssue(LocalDateTime.now());
+                        bookEntity.setDeadLine(LocalDateTime.now().plusDays(5));
+                } else {
+                    bookEntity.setReader(null);
+                    bookEntity.setIssue(null);
+                    bookEntity.setDeadLine(null);
+                }
             }
             if (hasBeenEdited) {
                 booksRepository.saveAndFlush(bookEntity);
@@ -178,7 +193,6 @@ public class BooksController {
     }
 
     @Operation(summary = "Удалить книгу")
-    @DeleteMapping(DELETE_BOOK)
     @ApiResponse(
             responseCode = "200",
             description = "Книга удалена из базы данных",
@@ -197,6 +211,8 @@ public class BooksController {
                     array = @ArraySchema(schema = @Schema(implementation = Exception.class))
             )}
     )
+    @PreAuthorize("hasAuthority('ADMIN')")
+    @DeleteMapping(DELETE_BOOK)
     public OKResponse deleteBook (@PathVariable (value = "id") Long id) {
         Optional<BookEntity> bookOptional = booksRepository.findById(id);
 

@@ -3,6 +3,8 @@ package ru.nikidzawa.dto;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -17,5 +19,9 @@ public class BookDto {
     @NonNull
     String author;
 
-    Long ownerID;
+    LocalDateTime issue;
+
+    LocalDateTime deadLine;
+
+    String owner;
 }

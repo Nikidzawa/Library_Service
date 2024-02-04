@@ -1,5 +1,6 @@
 package ru.nikidzawa.dto;
 
+import jakarta.persistence.Column;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -9,12 +10,15 @@ import lombok.experimental.FieldDefaults;
 @AllArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public class ReaderDto {
-
     Long id;
 
     @NonNull
     String name;
 
     @NonNull
-    String surname;
+    @Column(unique = true)
+    String nickname;
+
+    @NonNull
+    String role;
 }

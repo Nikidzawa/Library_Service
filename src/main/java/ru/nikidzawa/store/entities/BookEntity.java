@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
+import java.time.LocalDateTime;
+
 @Setter
 @Getter
 @Builder
@@ -17,11 +19,13 @@ public class BookEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @Column(name = "name")
     String name;
 
-    @Column (name = "author")
     String author;
+
+    LocalDateTime issue;
+
+    LocalDateTime deadLine;
 
     @ManyToOne
     ReaderEntity reader;

@@ -20,14 +20,15 @@ public class ReaderEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     Long id;
 
-    @Column(name = "name")
     String name;
 
-    @Column(name = "surname")
-    String surname;
+    String nickname;
+
+    String password;
+
+    String role;
 
     @Builder.Default
     @OneToMany(mappedBy = "reader", fetch = FetchType.EAGER)
     List <BookEntity> books = new ArrayList<>();
-
 }

@@ -10,6 +10,8 @@ import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 import ru.nikidzawa.dto.BookDto;
 import ru.nikidzawa.dto.ReaderDto;
@@ -43,6 +45,8 @@ public class ReadersController {
 
     BooksRepository booksRepository;
 
+    PasswordEncoder passwordEncoder;
+
     public static final String CREATE_READER = "/api/readers/create";
     public static final String READER_INFO = "/api/readers/{id}";
     public static final String READERS_LIST = "api/readers";
@@ -60,16 +64,31 @@ public class ReadersController {
                             array = @ArraySchema(schema = @Schema(implementation = ReaderDto.class))
                     )
             })
+    @ApiResponse (
+            responseCode = "400",
+            description = "Читатель с таким никнеймом уже существует",
+            content = {
+                    @Content (
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = ReaderDto.class))
+                    )
+            })
     @PostMapping(CREATE_READER)
     public ReaderDto createReader (@RequestParam (value = "name") String name,
-                                   @RequestParam (value = "surname") String surname) {
+                                   @RequestParam (value = "nickname") String nickname,
+                                   @RequestParam (value = "password") String password) {
+        readersRepository.findFirstByNickname(nickname)
+                .ifPresent(existingReader -> {
+                    throw new BadRequestException("Читатель с таким именем уже существует");
+                });
+
         return readerDtoFactory.createReader(readersRepository.saveAndFlush(
                 ReaderEntity.builder()
                         .name(name)
-                        .surname(surname)
-                        .build()
-                )
-        );
+                        .nickname(nickname)
+                        .password(passwordEncoder.encode(password))
+                        .role("READER")
+                        .build()));
     }
 
     @Operation(summary = "Изменить био читателя")
@@ -101,6 +120,7 @@ public class ReadersController {
                     )}
     )
     @PatchMapping(PATCH_READER)
+    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
     public ReaderDto editReader (@PathVariable (value = "id") Long id,
                                 @RequestParam (value = "name", required = false) Optional <String> name,
                                 @RequestParam (value = "surname", required = false) Optional <String> surname)
@@ -114,7 +134,7 @@ public class ReadersController {
             }
             if (surname.isPresent()) {
                 hasBeenEdited = true;
-                reader.setSurname(surname.get());
+                reader.setNickname(surname.get());
             }
             if (hasBeenEdited) {
                 return readerDtoFactory.createReader(readersRepository.saveAndFlush(reader));
@@ -143,6 +163,7 @@ public class ReadersController {
                     )}
     )
     @GetMapping(READER_INFO)
+    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
     public ReaderDto readerInfo (@PathVariable (value = "id") Long id) {
         return readerDtoFactory
                 .createReader(readersRepository.findById(id)
@@ -169,6 +190,7 @@ public class ReadersController {
                     )}
     )
     @GetMapping(READER_BOOKS_LIST)
+    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
     public List<BookDto> readerBooks (@PathVariable (value = "id") Long readerId)
     {
         ReaderEntity reader = readersRepository.findById(readerId)
@@ -203,6 +225,7 @@ public class ReadersController {
                     )}
     )
     @GetMapping(READERS_LIST)
+    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
     public List<ReaderDto> allReaders ()
     {
         List<ReaderEntity> readerEntities = readersRepository.findAll();
@@ -234,11 +257,14 @@ public class ReadersController {
                     )}
     )
     @DeleteMapping(DELETE_READER)
+    @PreAuthorize("hasAuthority('ADMIN')")
     public OKResponse deleteReader(@PathVariable (value = "id") Long id) {
         Optional<ReaderEntity> readerEntity = readersRepository.findById(id);
         return readerEntity.map(reader -> {
             reader.getBooks().forEach(bookEntity -> {
                 bookEntity.setReader(null);
+                bookEntity.setDeadLine(null);
+                bookEntity.setIssue(null);
                 booksRepository.saveAndFlush(bookEntity);
             });
             readersRepository.delete(reader);

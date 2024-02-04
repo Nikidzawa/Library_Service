@@ -2,7 +2,7 @@ version: '3.1'
 
 services:
   library:
-    image: '443410694cbf'
+    image: '5096f29ee05e'
     container_name: library
     expose:
       - '8080'
