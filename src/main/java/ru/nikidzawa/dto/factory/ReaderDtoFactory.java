@@ -11,7 +11,7 @@ public class ReaderDtoFactory {
                .id(reader.getId())
                .name(reader.getName())
                .nickname(reader.getNickname())
-               .role(reader.getRole())
+               .role(reader.getRole().name())
                .build();
     }
 }

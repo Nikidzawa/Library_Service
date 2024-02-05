@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -29,19 +28,21 @@ import java.util.Optional;
 
 @Tag(name = "Книги", description = "Управление книгами")
 @RequiredArgsConstructor
-@Transactional
-@FieldDefaults (level = AccessLevel.PRIVATE, makeFinal = true)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RestController
 public class BooksController {
+
     BooksRepository booksRepository;
+
     ReadersRepository readersRepository;
+
     BookDtoFactory bookDtoFactory;
 
     public static final String CREATE_BOOK = "api/books/create";
     public static final String GET_BOOKS = "api/books";
-    public static final String GET_BOOK = "api/books/{id}";
-    public static final String PATCH_BOOK = "api/books/edit/{bookId}";
-    public static final String DELETE_BOOK = "api/books/delete/{id}";
+    public static final String GET_BOOK = "api/books/{bookId}";
+    public static final String PATCH_BOOK = "api/books/{bookId}/edit";
+    public static final String DELETE_BOOK = "api/books/{bookId}/delete";
 
     @Operation(summary = "Создать книгу", description = "Роли: Админ")
     @ApiResponse(
@@ -51,6 +52,15 @@ public class BooksController {
                     @Content(
                             mediaType = "application/json",
                             array = @ArraySchema(schema = @Schema(implementation = BookDto.class))
+                    )
+            })
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )
             })
     @PreAuthorize("hasAuthority('ADMIN')")
@@ -85,7 +95,15 @@ public class BooksController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
-    @PreAuthorize("hasAuthority('READER')")
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @GetMapping(GET_BOOKS)
     public List<BookDto> allBooks () {
         List<BookEntity> bookEntities = booksRepository.findAll();
@@ -116,9 +134,17 @@ public class BooksController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @GetMapping(GET_BOOK)
-    @PreAuthorize("hasAuthority('READER')")
-    public BookDto bookInfo (@PathVariable (value = "id") Long id) {
+    public BookDto bookInfo (@PathVariable (value = "bookId") Long id) {
         return bookDtoFactory.createBook(booksRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Книга не найдена")));
     }
@@ -151,6 +177,15 @@ public class BooksController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @PatchMapping(PATCH_BOOK)
     @PreAuthorize("hasAuthority('ADMIN')")
     public BookDto editeBook (@PathVariable (value = "bookId") Long bookId,
@@ -211,9 +246,18 @@ public class BooksController {
                     array = @ArraySchema(schema = @Schema(implementation = Exception.class))
             )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @PreAuthorize("hasAuthority('ADMIN')")
     @DeleteMapping(DELETE_BOOK)
-    public OKResponse deleteBook (@PathVariable (value = "id") Long id) {
+    public OKResponse deleteBook (@PathVariable (value = "bookId") Long id) {
         Optional<BookEntity> bookOptional = booksRepository.findById(id);
 
         if (bookOptional.isPresent()) {

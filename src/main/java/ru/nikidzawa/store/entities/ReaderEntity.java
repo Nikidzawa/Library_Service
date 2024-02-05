@@ -26,7 +26,7 @@ public class ReaderEntity {
 
     String password;
 
-    String role;
+    Roles role;
 
     @Builder.Default
     @OneToMany(mappedBy = "reader", fetch = FetchType.EAGER)

@@ -6,7 +6,6 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.transaction.Transactional;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -23,6 +22,7 @@ import ru.nikidzawa.responses.exceptions.Exception;
 import ru.nikidzawa.responses.exceptions.NotFoundException;
 import ru.nikidzawa.store.entities.BookEntity;
 import ru.nikidzawa.store.entities.ReaderEntity;
+import ru.nikidzawa.store.entities.Roles;
 import ru.nikidzawa.store.repositoreis.BooksRepository;
 import ru.nikidzawa.store.repositoreis.ReadersRepository;
 
@@ -32,8 +32,7 @@ import java.util.stream.Collectors;
 
 @Tag(name = "Читатели", description = "Управление читателями")
 @RequiredArgsConstructor
-@Transactional
-@FieldDefaults (level = AccessLevel.PRIVATE, makeFinal = true)
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RestController
 public class ReadersController {
 
@@ -47,12 +46,12 @@ public class ReadersController {
 
     PasswordEncoder passwordEncoder;
 
-    public static final String CREATE_READER = "/api/readers/create";
-    public static final String READER_INFO = "/api/readers/{id}";
+    public static final String CREATE_READER = "/api/readers/registration";
     public static final String READERS_LIST = "api/readers";
-    public static final String READER_BOOKS_LIST = "/api/readers/{id}/books";
-    public static final String PATCH_READER = "/api/readers/edit/{id}";
-    public static final String DELETE_READER = "/api/readers/delete/{id}";
+    public static final String READER_INFO = "/api/readers/{readerId}";
+    public static final String READER_BOOKS_LIST = "/api/readers/{readerId}/books";
+    public static final String PATCH_READER = "/api/readers/{readerId}/edit";
+    public static final String DELETE_READER = "/api/readers/{readerId}/delete";
 
     @Operation(summary = "Зарегистрировать читателя")
     @ApiResponse (
@@ -78,16 +77,14 @@ public class ReadersController {
                                    @RequestParam (value = "nickname") String nickname,
                                    @RequestParam (value = "password") String password) {
         readersRepository.findFirstByNickname(nickname)
-                .ifPresent(existingReader -> {
-                    throw new BadRequestException("Читатель с таким именем уже существует");
-                });
+                .ifPresent(existingReader -> {throw new BadRequestException("Читатель с таким именем уже существует");});
 
         return readerDtoFactory.createReader(readersRepository.saveAndFlush(
                 ReaderEntity.builder()
                         .name(name)
                         .nickname(nickname)
                         .password(passwordEncoder.encode(password))
-                        .role("READER")
+                        .role(Roles.ADMIN)
                         .build()));
     }
 
@@ -119,11 +116,19 @@ public class ReadersController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @PatchMapping(PATCH_READER)
-    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
-    public ReaderDto editReader (@PathVariable (value = "id") Long id,
+    public ReaderDto editReader (@PathVariable (value = "readerId") Long id,
                                 @RequestParam (value = "name", required = false) Optional <String> name,
-                                @RequestParam (value = "surname", required = false) Optional <String> surname)
+                                @RequestParam (value = "nickname", required = false) Optional <String> nickname)
     {
         Optional <ReaderEntity> readerEntity = readersRepository.findById(id);
         return readerEntity.map(reader -> {
@@ -132,9 +137,9 @@ public class ReadersController {
                 hasBeenEdited = true;
                 reader.setName(name.get());
             }
-            if (surname.isPresent()) {
+            if (nickname.isPresent()) {
                 hasBeenEdited = true;
-                reader.setNickname(surname.get());
+                reader.setNickname(nickname.get());
             }
             if (hasBeenEdited) {
                 return readerDtoFactory.createReader(readersRepository.saveAndFlush(reader));
@@ -162,9 +167,17 @@ public class ReadersController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @GetMapping(READER_INFO)
-    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
-    public ReaderDto readerInfo (@PathVariable (value = "id") Long id) {
+    public ReaderDto readerInfo (@PathVariable (value = "readerId") Long id) {
         return readerDtoFactory
                 .createReader(readersRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден")));
@@ -189,9 +202,17 @@ public class ReadersController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @GetMapping(READER_BOOKS_LIST)
-    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
-    public List<BookDto> readerBooks (@PathVariable (value = "id") Long readerId)
+    public List<BookDto> readerBooks (@PathVariable (value = "readerId") Long readerId)
     {
         ReaderEntity reader = readersRepository.findById(readerId)
                 .orElseThrow(() -> new NotFoundException("Читатель не найден"));
@@ -224,8 +245,17 @@ public class ReadersController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @GetMapping(READERS_LIST)
-    @PreAuthorize("hasAnyRole('ADMIN', 'READER')")
+    @PreAuthorize("hasAuthority('ADMIN')")
     public List<ReaderDto> allReaders ()
     {
         List<ReaderEntity> readerEntities = readersRepository.findAll();
@@ -256,9 +286,18 @@ public class ReadersController {
                             array = @ArraySchema(schema = @Schema(implementation = Exception.class))
                     )}
     )
+    @ApiResponse(
+            responseCode = "401",
+            description = "Не авторизован",
+            content = {
+                    @Content(
+                            mediaType = "application/json",
+                            array = @ArraySchema(schema = @Schema(implementation = Exception.class))
+                    )
+            })
     @DeleteMapping(DELETE_READER)
     @PreAuthorize("hasAuthority('ADMIN')")
-    public OKResponse deleteReader(@PathVariable (value = "id") Long id) {
+    public OKResponse deleteReader(@PathVariable (value = "readerId") Long id) {
         Optional<ReaderEntity> readerEntity = readersRepository.findById(id);
         return readerEntity.map(reader -> {
             reader.getBooks().forEach(bookEntity -> {

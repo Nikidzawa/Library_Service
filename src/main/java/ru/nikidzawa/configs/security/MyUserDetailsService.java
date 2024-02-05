@@ -19,6 +19,6 @@ public class MyUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         Optional<ReaderEntity> readerEntity = repository.findFirstByNickname(username);
-        return readerEntity.map(MyUserDetails::new).orElseThrow(() -> new RuntimeException("Ошибка"));
+        return readerEntity.map(MyUserDetails::new).orElseThrow(() -> new RuntimeException("Пользователя не существует"));
     }
 }
