@@ -19,6 +19,9 @@ public class BookDto {
     @NonNull
     String author;
 
+    @NonNull
+    String description;
+
     LocalDateTime issue;
 
     LocalDateTime deadLine;

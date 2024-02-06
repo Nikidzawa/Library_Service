@@ -19,6 +19,8 @@ public class ReaderDto {
     @Column(unique = true)
     String nickname;
 
+    String mail;
+
     @NonNull
     String role;
 }

@@ -23,6 +23,8 @@ public class BookEntity {
 
     String author;
 
+    String description;
+
     LocalDateTime issue;
 
     LocalDateTime deadLine;

@@ -11,6 +11,7 @@ public class ReaderDtoFactory {
                .id(reader.getId())
                .name(reader.getName())
                .nickname(reader.getNickname())
+               .mail(reader.getMail())
                .role(reader.getRole().name())
                .build();
     }
