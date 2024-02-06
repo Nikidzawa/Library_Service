@@ -11,6 +11,7 @@ public class BookDtoFactory {
                 .id(book.getId())
                 .name(book.getName())
                 .author(book.getAuthor())
+                .description(book.getDescription())
                 .build();
         if (book.getReader() != null) {
             bookDto.setIssue(book.getIssue());

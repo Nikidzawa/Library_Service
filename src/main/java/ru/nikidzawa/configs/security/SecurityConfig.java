@@ -13,6 +13,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import ru.nikidzawa.responses.exceptions.CustomAccessDeniedHandler;
 import ru.nikidzawa.responses.exceptions.CustomAuthenticationEntryPoint;
 
 @Configuration
@@ -28,13 +29,15 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain (HttpSecurity http) throws Exception {
         return http.csrf(AbstractHttpConfigurer::disable)
-                .exceptionHandling().authenticationEntryPoint(customAuthenticationEntryPoint())
-                .and()
+                .httpBasic(httpBasic -> {})
+                .exceptionHandling(exceptionHandling -> {
+                    exceptionHandling.authenticationEntryPoint(customAuthenticationEntryPoint());
+                    exceptionHandling.accessDeniedHandler(customAccessDeniedHandler());
+                })
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("api/readers/registration").permitAll()
-                        .requestMatchers("swagger-ui/**", "v3/api-docs/**").permitAll()
+                        .requestMatchers("api/readers/registration", "swagger-ui/**", "v3/api-docs/**").permitAll()
                         .requestMatchers("api/**").authenticated())
-                .formLogin(AbstractAuthenticationFilterConfigurer::permitAll)
+                .formLogin(AbstractAuthenticationFilterConfigurer::disable)
                 .build();
     }
 
@@ -51,4 +54,7 @@ public class SecurityConfig {
 
     @Bean
     public CustomAuthenticationEntryPoint customAuthenticationEntryPoint() {return new CustomAuthenticationEntryPoint();}
+
+    @Bean
+    public CustomAccessDeniedHandler customAccessDeniedHandler() {return new CustomAccessDeniedHandler();}
 }

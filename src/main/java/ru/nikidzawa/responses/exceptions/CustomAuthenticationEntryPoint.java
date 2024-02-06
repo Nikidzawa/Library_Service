@@ -25,7 +25,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
                 response.getWriter(),
                 Exception.builder()
                 .code(HttpStatus.UNAUTHORIZED.value())
-                .message("Не авторизован").build()
+                .message("Доступ запрещен: Не авторизован").build()
         );
     }
 }

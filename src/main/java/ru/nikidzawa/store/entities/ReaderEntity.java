@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Setter
@@ -24,11 +23,12 @@ public class ReaderEntity {
 
     String nickname;
 
+    String mail;
+
     String password;
 
     Roles role;
 
-    @Builder.Default
-    @OneToMany(mappedBy = "reader", fetch = FetchType.EAGER)
-    List <BookEntity> books = new ArrayList<>();
+    @OneToMany(mappedBy = "reader", fetch = FetchType.LAZY)
+    List <BookEntity> books;
 }
