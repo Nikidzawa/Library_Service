@@ -17,7 +17,7 @@
         </encoder>
     </appender>
 
-    <logger name="ru.nikidzawa.configs.bookkeepingSystem.BookkeepingFileController" level="INFO">
+    <logger name="ru.nikidzawa.app.configs.bookkeepingSystem.BookkeepingFileController" level="INFO">
         <appender-ref ref="FILE" />
     </logger>
 

@@ -5,6 +5,13 @@ plugins {
 }
 group = "ru.nikidzawa"
 
+tasks.test {
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching("ru.nikidzawa.test.RestTest")
+    }
+}
+
 repositories { mavenCentral() }
 
 dependencies {
@@ -29,4 +36,7 @@ dependencies {
 
     implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0")
 
+    testImplementation("org.junit.jupiter:junit-jupiter-api:5.10.2")
+    testImplementation ("io.rest-assured:rest-assured:5.4.0")
+    testImplementation ("org.springframework.boot:spring-boot-starter-test")
 }

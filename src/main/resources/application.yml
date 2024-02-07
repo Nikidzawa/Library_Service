@@ -1,4 +1,28 @@
+---
+# Настройки для профиля тестирования
+
 spring:
+  profiles:
+    active: default
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/postgres
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+---
+# Настройки для профиля docker
+
+spring:
+  config:
+    activate:
+      on-profile: docker
+
   datasource:
     url: ${DB_URL}
     username: ${DB_USER}
