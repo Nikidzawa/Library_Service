@@ -2,7 +2,7 @@ version: '3.1'
 
 services:
   library:
-    image: 'b2e82b21052b'
+    image: 'bf0a1b4ec44f'
     container_name: library
     expose:
       - '8080'
@@ -15,6 +15,8 @@ services:
       - DB_URL=jdbc:postgresql://database:5432/postgres
     depends_on:
       - database
+      - redis
+
   database:
     image: 'postgres'
     container_name: database
@@ -23,3 +25,9 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+
+  redis:
+    image: 'redis'
+    container_name: "redis"
+    ports:
+      - "6379:6379"

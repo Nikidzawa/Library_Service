@@ -11,19 +11,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-import ru.nikidzawa.app.dto.BookDto;
 import ru.nikidzawa.app.responses.OKResponse;
-import ru.nikidzawa.app.store.entities.BookEntity;
-import ru.nikidzawa.app.store.entities.ReaderEntity;
-import ru.nikidzawa.app.store.repositoreis.ReadersRepository;
-import ru.nikidzawa.app.configs.bookkeepingSystem.BookkeepingService;
-import ru.nikidzawa.app.dto.factory.BookDtoFactory;
-import ru.nikidzawa.app.responses.exceptions.BadRequestException;
 import ru.nikidzawa.app.responses.exceptions.Exception;
-import ru.nikidzawa.app.responses.exceptions.NotFoundException;
-import ru.nikidzawa.app.store.repositoreis.BooksRepository;
+import ru.nikidzawa.app.services.BookService;
+import ru.nikidzawa.app.store.dto.BookDto;
+import ru.nikidzawa.app.store.dto.factory.BookDtoFactory;
 
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -33,21 +26,17 @@ import java.util.Optional;
 @RestController
 public class BooksController {
 
-    BooksRepository booksRepository;
-
-    ReadersRepository readersRepository;
-
     BookDtoFactory bookDtoFactory;
 
-    BookkeepingService bookkeepingService;
+    BookService service;
 
     public static final String CREATE_BOOK = "api/books/create";
     public static final String GET_BOOKS = "api/books";
-    public static final String GET_BOOK = "api/books/{bookId}";
-    public static final String PATCH_BOOK = "api/books/{bookId}/edit";
-    public static final String SET_OWNER = "api/books/{bookId}/setOwner/{readerNickname}/{days}";
-    public static final String REMOVE_OWNER = "api/books/{bookId}/removeOwner";
-    public static final String DELETE_BOOK = "api/books/{bookId}/delete";
+    public static final String GET_BOOK = "api/books/{bookName}";
+    public static final String PATCH_BOOK = "api/books/{bookName}/edit";
+    public static final String SET_OWNER = "api/books/{bookName}/setOwner/{readerNickname}/{days}";
+    public static final String REMOVE_OWNER = "api/books/{bookName}/removeOwner";
+    public static final String DELETE_BOOK = "api/books/{bookName}/delete";
 
     @Operation(summary = "Создать книгу")
     @ApiResponse(
@@ -73,14 +62,7 @@ public class BooksController {
     public BookDto createBook (@RequestParam (value = "name") String name,
                                @RequestParam (value = "author") String author,
                                @RequestParam (value = "description") String description) {
-        return bookDtoFactory.createBook(booksRepository.saveAndFlush(
-                BookEntity.builder()
-                        .name(name)
-                        .author(author)
-                        .description(description)
-                        .build()
-                )
-        );
+        return bookDtoFactory.createBook(service.createBook(name, author, description));
     }
 
     @Operation(summary = "Получить все книги")
@@ -113,11 +95,7 @@ public class BooksController {
             })
     @GetMapping(GET_BOOKS)
     public List<BookDto> allBooks () {
-        List<BookEntity> bookEntities = booksRepository.findAll();
-        if (bookEntities.isEmpty()) {
-            throw new NotFoundException("Книги не найдены");
-        }
-        return bookEntities.stream()
+        return service.getAllBooks().stream()
                 .map(bookDtoFactory::createBook)
                 .toList();
     }
@@ -151,9 +129,8 @@ public class BooksController {
                     )
             })
     @GetMapping(GET_BOOK)
-    public BookDto bookInfo (@PathVariable Long bookId) {
-        return bookDtoFactory.createBook(booksRepository.findById(bookId)
-                .orElseThrow(() -> new NotFoundException("Книга не найдена")));
+    public BookDto bookInfo (@PathVariable String bookName) {
+        return bookDtoFactory.createBook(service.getBook(bookName));
     }
 
     @Operation(summary = "Изменить информацию о книге", description = "Укажите 0, если хотите убрать читателя")
@@ -195,29 +172,11 @@ public class BooksController {
             })
     @PatchMapping(PATCH_BOOK)
     @PreAuthorize("hasAuthority('ADMIN')")
-    public BookDto editeBook (@PathVariable Long bookId,
+    public BookDto editBook (@PathVariable String bookName,
                               @RequestParam (value = "name", required = false) Optional <String> name,
                               @RequestParam (value = "author", required = false) Optional <String> author,
                               @RequestParam (value = "description", required = false) Optional<String> description) {
-       return booksRepository.findById(bookId).map(bookEntity -> {
-            boolean hasBeenEdited = false;
-            if (name.isPresent()) {
-                hasBeenEdited = true;
-                bookEntity.setName(name.get());
-            }
-            if (author.isPresent()) {
-                hasBeenEdited = true;
-                bookEntity.setAuthor(author.get());
-            }
-            if (description.isPresent()) {
-                hasBeenEdited = true;
-                bookEntity.setDescription(description.get());
-            }
-            if (hasBeenEdited) {
-                booksRepository.saveAndFlush(bookEntity);
-                return bookDtoFactory.createBook(bookEntity);
-            } else throw new BadRequestException("Ни один из параметров не был изменён");
-       }).orElseThrow(() -> new NotFoundException("Книга не найдена"));
+       return bookDtoFactory.createBook(service.editBook(bookName, name, author, description));
     }
 
     @Operation(summary = "Выдать книгу читателю")
@@ -259,23 +218,10 @@ public class BooksController {
             })
     @PatchMapping(SET_OWNER)
     @PreAuthorize("hasAuthority('ADMIN')")
-    public BookDto setOwner (@PathVariable Long bookId,
+    public BookDto setOwner (@PathVariable String bookName,
                              @PathVariable String readerNickname,
                              @PathVariable Long days) {
-        ReaderEntity reader = readersRepository.findFirstByNickname(readerNickname)
-                .orElseThrow(() -> new NotFoundException("Пользователя с таким именем не существует"));
-        BookEntity book = booksRepository.findById(bookId)
-                .orElseThrow(() -> new NotFoundException("Книги с указанным id не существует"));
-        if (book.getReader() != null) {throw new BadRequestException("У книги уже есть владелец");}
-
-        reader.getBooks().add(book);
-        book.setReader(reader);
-        book.setIssue(LocalDateTime.now());
-        book.setDeadLine(LocalDateTime.now().plusDays(days));
-        bookkeepingService.takeBook(days, book, reader);
-
-        readersRepository.saveAndFlush(reader);
-        return bookDtoFactory.createBook(booksRepository.saveAndFlush(book));
+        return bookDtoFactory.createBook(service.setOwner(bookName, readerNickname, days));
     }
 
 
@@ -318,22 +264,8 @@ public class BooksController {
             })
     @PatchMapping(REMOVE_OWNER)
     @PreAuthorize("hasAuthority('ADMIN')")
-    public BookDto removeReader (@PathVariable Long bookId) {
-        return bookDtoFactory.createBook (
-                booksRepository.saveAndFlush(
-                        booksRepository.findById(bookId)
-                                .map(bookEntity -> {
-                                    if (bookEntity.getReader() == null) {
-                                        throw new BadRequestException("У книги нет владельца");
-                                    }
-                                    bookEntity.setReader(null);
-                                    bookEntity.setIssue(null);
-                                    bookEntity.setDeadLine(null);
-                                    bookkeepingService.handOverBook(bookId);
-                                    return bookEntity;
-                                }).orElseThrow(() -> new NotFoundException("Книги не существует"))
-                )
-        );
+    public BookDto removeReader (@PathVariable String bookName) {
+        return bookDtoFactory.createBook (service.removeOwner(bookName));
     }
 
     @Operation(summary = "Удалить книгу")
@@ -366,18 +298,7 @@ public class BooksController {
             })
     @PreAuthorize("hasAuthority('ADMIN')")
     @DeleteMapping(DELETE_BOOK)
-    public OKResponse deleteBook (@PathVariable (value = "bookId") Long id) {
-        return booksRepository.findById(id).map(bookEntity -> {
-            ReaderEntity reader = bookEntity.getReader();
-            if (reader != null) {
-                reader.getBooks().remove(bookEntity);
-                readersRepository.saveAndFlush(reader);
-            }
-            booksRepository.delete(bookEntity);
-            return OKResponse.builder()
-                    .code(200)
-                    .message("Книга удалена из базы данных")
-                    .build();
-        }).orElseThrow(() -> new NotFoundException("Указанной книги не существует"));
+    public OKResponse deleteBook (@PathVariable (value = "bookName") String bookName) {
+        return service.deleteBook(bookName);
     }
 }

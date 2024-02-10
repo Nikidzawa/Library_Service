@@ -10,25 +10,17 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-import ru.nikidzawa.app.dto.BookDto;
-import ru.nikidzawa.app.dto.ReaderDto;
 import ru.nikidzawa.app.responses.OKResponse;
-import ru.nikidzawa.app.store.entities.BookEntity;
-import ru.nikidzawa.app.store.entities.ReaderEntity;
-import ru.nikidzawa.app.store.entities.Roles;
-import ru.nikidzawa.app.store.repositoreis.ReadersRepository;
-import ru.nikidzawa.app.dto.factory.BookDtoFactory;
-import ru.nikidzawa.app.dto.factory.ReaderDtoFactory;
-import ru.nikidzawa.app.responses.exceptions.BadRequestException;
 import ru.nikidzawa.app.responses.exceptions.Exception;
-import ru.nikidzawa.app.responses.exceptions.NotFoundException;
-import ru.nikidzawa.app.store.repositoreis.BooksRepository;
+import ru.nikidzawa.app.services.ReaderService;
+import ru.nikidzawa.app.store.dto.BookDto;
+import ru.nikidzawa.app.store.dto.ReaderDto;
+import ru.nikidzawa.app.store.dto.factory.BookDtoFactory;
+import ru.nikidzawa.app.store.dto.factory.ReaderDtoFactory;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Tag(name = "Читатели", description = "Управление читателями")
 @RequiredArgsConstructor
@@ -36,22 +28,18 @@ import java.util.stream.Collectors;
 @RestController
 public class ReadersController {
 
-    ReadersRepository readersRepository;
-
     BookDtoFactory bookDtoFactory;
 
     ReaderDtoFactory readerDtoFactory;
 
-    BooksRepository booksRepository;
-
-    PasswordEncoder passwordEncoder;
+    ReaderService service;
 
     public static final String CREATE_READER = "/api/readers/registration";
     public static final String READERS_LIST = "api/readers";
-    public static final String READER_INFO = "/api/readers/{readerId}";
-    public static final String READER_BOOKS_LIST = "/api/readers/{readerId}/books";
-    public static final String PATCH_READER = "/api/readers/{readerId}/edit";
-    public static final String DELETE_READER = "/api/readers/{readerId}/delete";
+    public static final String READER_INFO = "/api/readers/{readerNickname}";
+    public static final String READER_BOOKS_LIST = "/api/readers/{readerNickname}/books";
+    public static final String PATCH_READER = "/api/readers/{readerNickname}/edit";
+    public static final String DELETE_READER = "/api/readers/{readerNickname}/delete";
 
     @Operation(summary = "Зарегистрировать читателя")
     @ApiResponse (
@@ -77,17 +65,7 @@ public class ReadersController {
                                    @RequestParam (value = "nickname") String nickname,
                                    @RequestParam (value = "password") String password,
                                    @RequestParam (value = "mail") String mail) {
-        readersRepository.findFirstByNickname(nickname)
-                .ifPresent(existingReader -> {throw new BadRequestException("Читатель с таким именем уже существует");});
-
-        return readerDtoFactory.createReader(readersRepository.saveAndFlush(
-                ReaderEntity.builder()
-                        .name(name)
-                        .nickname(nickname)
-                        .password(passwordEncoder.encode(password))
-                        .mail(mail)
-                        .role(Roles.READER)
-                        .build()));
+        return readerDtoFactory.createReader(service.createReader(name, nickname, password, mail));
     }
 
     @Operation(summary = "Изменить био читателя")
@@ -128,23 +106,10 @@ public class ReadersController {
                     )
             })
     @PatchMapping(PATCH_READER)
-    public ReaderDto editReader (@PathVariable (value = "readerId") Long id,
-                                @RequestParam (value = "name", required = false) Optional <String> name,
-                                @RequestParam (value = "nickname", required = false) Optional <String> nickname) {
-        return readersRepository.findById(id).map(reader -> {
-            boolean hasBeenEdited = false;
-            if (name.isPresent()) {
-                hasBeenEdited = true;
-                reader.setName(name.get());
-            }
-            if (nickname.isPresent()) {
-                hasBeenEdited = true;
-                reader.setNickname(nickname.get());
-            }
-            if (hasBeenEdited) {
-                return readerDtoFactory.createReader(readersRepository.saveAndFlush(reader));
-            } else throw new BadRequestException("Данные не были изменены");
-        }).orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+    public ReaderDto editReader (@PathVariable (value = "readerNickname") String readerNickname,
+                                 @RequestParam (value = "name", required = false) Optional <String> name,
+                                 @RequestParam (value = "nickname", required = false) Optional <String> nickname) {
+        return readerDtoFactory.createReader(service.editReader(readerNickname, nickname, name));
     }
 
     @Operation(summary = "Получить информацию о читателе")
@@ -176,9 +141,8 @@ public class ReadersController {
                     )
             })
     @GetMapping(READER_INFO)
-    public ReaderDto readerInfo (@PathVariable Long readerId) {
-        return readerDtoFactory.createReader(readersRepository.findById(readerId)
-                .orElseThrow(() -> new NotFoundException("Пользователь не найден")));
+    public ReaderDto readerInfo (@PathVariable String readerNickname) {
+        return readerDtoFactory.createReader(service.getReader(readerNickname));
     }
 
     @Operation(summary = "Получить книги читателя")
@@ -210,17 +174,9 @@ public class ReadersController {
                     )
             })
     @GetMapping(READER_BOOKS_LIST)
-    public List<BookDto> readerBooks (@PathVariable Long readerId) {
-        return readersRepository.findById(readerId).map(reader -> {
-            List<BookEntity> bookEntities = reader.getBooks();
-            if (bookEntities.isEmpty()) {
-                throw new NotFoundException("У читателя нет книг");
-            } else {
-                return bookEntities.stream()
-                        .map(bookDtoFactory::createBook)
-                        .collect(Collectors.toList());
-            }
-        }).orElseThrow(() -> new NotFoundException("Читателя не существует"));
+    public List<BookDto> readerBooks (@PathVariable String readerNickname) {
+        return service.getReaderBooks(readerNickname).stream()
+                .map(bookDtoFactory::createBook).toList();
     }
 
     @Operation(summary = "Получить всех читателей")
@@ -253,13 +209,8 @@ public class ReadersController {
             })
     @GetMapping(READERS_LIST)
     @PreAuthorize("hasAuthority('ADMIN')")
-    public List<ReaderDto> allReaders ()
-    {
-        List<ReaderEntity> readerEntities = readersRepository.findAll();
-        if (readerEntities.isEmpty()) {
-            throw new NotFoundException("Читатели не найдены");
-        }
-        return readerEntities.stream()
+    public List<ReaderDto> getAllReaders () {
+        return service.getAllReaders().stream()
                 .map(readerDtoFactory::createReader)
                 .toList();
     }
@@ -294,19 +245,7 @@ public class ReadersController {
             })
     @DeleteMapping(DELETE_READER)
     @PreAuthorize("hasAuthority('ADMIN')")
-    public OKResponse deleteReader(@PathVariable Long readerId) {
-        return readersRepository.findById(readerId).map(reader -> {
-            reader.getBooks().forEach(bookEntity -> {
-                bookEntity.setReader(null);
-                bookEntity.setDeadLine(null);
-                bookEntity.setIssue(null);
-                booksRepository.saveAndFlush(bookEntity);
-            });
-            readersRepository.delete(reader);
-            return OKResponse.builder()
-                    .code(200)
-                    .message("Читатель удалён")
-                    .build();
-        }).orElseThrow(() -> new NotFoundException("Читатель не найден"));
+    public OKResponse deleteReader(@PathVariable String readerNickname) {
+        return service.deleteReader(readerNickname);
     }
 }

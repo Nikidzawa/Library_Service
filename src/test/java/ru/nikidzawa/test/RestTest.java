@@ -14,14 +14,10 @@ import ru.nikidzawa.app.store.entities.ReaderEntity;
 import java.util.Base64;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.equalTo;
-
 import static org.hamcrest.Matchers.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class RestTest {
-
-    public static long repeat = 0;
 
     public static ReaderEntity reader = ReaderEntity.builder()
             .nickname("nikita")
@@ -29,6 +25,8 @@ public class RestTest {
             .password("nikita")
             .mail("nikidzawa@mail.ru")
             .build();
+
+    public static String bookName;
 
     @BeforeAll
     public static void setUp() {
@@ -39,15 +37,12 @@ public class RestTest {
     @Test
     @Order(1)
     public void testCreateReader() {
-        Response response = given()
+        given()
                 .contentType(ContentType.JSON)
                 .when()
                 .post("readers/registration?name=" + reader.getName() + "&nickname=" + reader.getNickname() + "&password=" + reader.getPassword() + "&mail=" + reader.getMail())
                 .then()
-                .statusCode(200)
-                .extract().response();
-        repeat = Long.parseLong(response.path("id").toString());
-        reader.setId(repeat);
+                .statusCode(200);
     }
 
     @Test
@@ -76,20 +71,20 @@ public class RestTest {
     @Test
     @Order(4)
     public void testCreateBook() {
-        String name = "Test Book";
+        bookName = "Test Book";
         String author = "Test Author";
         String description = "Test Description";
 
         given()
                 .contentType(ContentType.JSON)
-                .queryParam("name", name)
+                .queryParam("name", bookName)
                 .queryParam("author", author)
                 .queryParam("description", description)
                 .when()
                 .post("books/create")
                 .then()
                 .statusCode(200)
-                .body("name", equalTo(name))
+                .body("name", equalTo(bookName))
                 .body("author", equalTo(author))
                 .body("description", equalTo(description))
                 .body("owner", nullValue())
@@ -112,9 +107,9 @@ public class RestTest {
     @Order(6)
     public void testBookInfo() {
         given()
-                .pathParam("bookId", repeat)
+                .pathParam("bookName", bookName)
                 .when()
-                .get("books/{bookId}")
+                .get("books/{bookName}")
                 .then()
                 .statusCode(200)
                 .body("name", notNullValue())
@@ -133,12 +128,12 @@ public class RestTest {
         String newDescription = "New Description";
 
         given()
-                .pathParam("bookId", repeat)
+                .pathParam("bookName", bookName)
                 .queryParam("name", newName)
                 .queryParam("author", newAuthor)
                 .queryParam("description", newDescription)
                 .when()
-                .patch("books/{bookId}/edit")
+                .patch("books/{bookName}/edit")
                 .then()
                 .statusCode(200)
                 .body("name", equalTo(newName))
@@ -147,6 +142,7 @@ public class RestTest {
                 .body("owner", nullValue())
                 .body("issue", nullValue())
                 .body("deadLine", nullValue());
+        bookName = newName;
     }
 
     @Test
@@ -155,11 +151,11 @@ public class RestTest {
         long days = 7;
 
         given()
-                .pathParam("bookId", repeat)
+                .pathParam("bookName", bookName)
                 .pathParam("readerNickname", reader.getNickname())
                 .pathParam("days", days)
                 .when()
-                .patch("books/{bookId}/setOwner/{readerNickname}/{days}")
+                .patch("books/{bookName}/setOwner/{readerNickname}/{days}")
                 .then()
                 .statusCode(200)
                 .body("name", notNullValue())
@@ -174,9 +170,9 @@ public class RestTest {
     @Order(9)
     public void testReaderBooks() {
         given()
-                .pathParam("readerId", reader.getId())
+                .pathParam("readerNickname", reader.getNickname())
                 .when()
-                .get("readers/{readerId}/books")
+                .get("readers/{readerNickname}/books")
                 .then()
                 .statusCode(200)
                 .body("size()", greaterThan(0));
@@ -186,9 +182,9 @@ public class RestTest {
     @Order(10)
     public void testRemoveReader() {
         given()
-                .pathParam("bookId", repeat)
+                .pathParam("bookName", bookName)
                 .when()
-                .patch("books/{bookId}/removeOwner")
+                .patch("books/{bookName}/removeOwner")
                 .then()
                 .statusCode(200)
                 .body("name", notNullValue())
@@ -203,9 +199,9 @@ public class RestTest {
     @Order(11)
     public void testDeleteBook() {
         given()
-                .pathParam("bookId", repeat)
+                .pathParam("bookName", bookName)
                 .when()
-                .delete("books/{bookId}/delete")
+                .delete("books/{bookName}/delete")
                 .then()
                 .statusCode(200)
                 .body("message", equalTo("Книга удалена из базы данных"));
@@ -237,9 +233,9 @@ public class RestTest {
     @Order(14)
     public void testReaderInfo() {
         given()
-                .pathParam("readerId", reader.getId())
+                .pathParam("readerNickname", reader.getNickname())
                 .when()
-                .get("readers/{readerId}")
+                .get("readers/{readerNickname}")
                 .then()
                 .statusCode(200)
                 .body("nickname", notNullValue())
@@ -255,11 +251,11 @@ public class RestTest {
         String newNickname = "Lenin";
 
         given()
-                .pathParam("readerId", reader.getId())
+                .pathParam("readerNickname", reader.getNickname())
                 .queryParam("name", newName)
                 .queryParam("nickname", newNickname)
                 .when()
-                .patch("readers/{readerId}/edit")
+                .patch("readers/{readerNickname}/edit")
                 .then()
                 .statusCode(200)
                 .body("name", equalTo(newName))
@@ -273,9 +269,9 @@ public class RestTest {
     @Order(16)
     public void deleteReader () {
         given()
-                .pathParam("readerId", reader.getId())
+                .pathParam("readerNickname", reader.getNickname())
                 .when()
-                .delete("readers/{readerId}/delete")
+                .delete("readers/{readerNickname}/delete")
                 .then()
                 .statusCode(200)
                 .body("message", equalTo("Читатель удалён"));

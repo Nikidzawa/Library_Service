@@ -18,6 +18,7 @@ dependencies {
     implementation("org.springframework.boot", "spring-boot-starter-web")
     implementation("org.springframework.boot" , "spring-boot-starter-data-jpa")
     implementation("org.springframework.boot", "spring-boot-starter-mail")
+    implementation("redis.clients:jedis:5.2.0-alpha2")
 
     implementation ("org.springframework.boot:spring-boot-starter-data-redis")
 

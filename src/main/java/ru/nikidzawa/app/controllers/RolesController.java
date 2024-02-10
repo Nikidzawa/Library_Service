@@ -8,12 +8,9 @@ import lombok.experimental.FieldDefaults;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
-import ru.nikidzawa.app.dto.ReaderDto;
-import ru.nikidzawa.app.store.entities.ReaderEntity;
-import ru.nikidzawa.app.store.entities.Roles;
-import ru.nikidzawa.app.store.repositoreis.ReadersRepository;
-import ru.nikidzawa.app.dto.factory.ReaderDtoFactory;
-import ru.nikidzawa.app.responses.exceptions.NotFoundException;
+import ru.nikidzawa.app.services.RolesService;
+import ru.nikidzawa.app.store.dto.ReaderDto;
+import ru.nikidzawa.app.store.dto.factory.ReaderDtoFactory;
 
 @Tag(name = "Роли", description = "Назначение ролей")
 @RequiredArgsConstructor
@@ -21,7 +18,7 @@ import ru.nikidzawa.app.responses.exceptions.NotFoundException;
 @RestController
 public class RolesController {
 
-    ReadersRepository readersRepository;
+    RolesService service;
 
     ReaderDtoFactory readerDtoFactory;
 
@@ -31,18 +28,12 @@ public class RolesController {
     @Operation(summary = "Выдать роль администратора (только для тестов)")
     @PatchMapping(setLibraryAdministratorRole)
     public ReaderDto setAdmRole (@PathVariable String nickname) {
-        ReaderEntity reader = readersRepository.findFirstByNickname(nickname)
-                .orElseThrow(() -> new NotFoundException("Пользователя не существует"));
-        reader.setRole(Roles.ADMIN);
-        return readerDtoFactory.createReader(readersRepository.saveAndFlush(reader));
+        return readerDtoFactory.createReader(service.setAdmRole(nickname));
     }
 
     @Operation(summary = "Выдать роль читателя (только для тестов)")
     @PatchMapping(setReaderRole)
     public ReaderDto setReaderRole (@PathVariable String nickname) {
-        ReaderEntity reader = readersRepository.findFirstByNickname(nickname)
-                .orElseThrow(() -> new NotFoundException("Пользователя не существует"));
-        reader.setRole(Roles.READER);
-        return readerDtoFactory.createReader(readersRepository.saveAndFlush(reader));
+        return readerDtoFactory.createReader(service.setReaderRole(nickname));
     }
 }

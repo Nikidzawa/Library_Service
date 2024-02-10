@@ -1,7 +1,7 @@
-package ru.nikidzawa.app.dto.factory;
+package ru.nikidzawa.app.store.dto.factory;
 
 import org.springframework.stereotype.Component;
-import ru.nikidzawa.app.dto.BookDto;
+import ru.nikidzawa.app.store.dto.BookDto;
 import ru.nikidzawa.app.store.entities.BookEntity;
 
 @Component

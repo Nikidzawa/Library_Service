@@ -1,4 +1,4 @@
-package ru.nikidzawa.app.dto;
+package ru.nikidzawa.app.store.dto;
 
 import jakarta.persistence.Column;
 import lombok.*;
